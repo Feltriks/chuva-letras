@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chuva de Letras</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      overflow: hidden;
+      background: linear-gradient(to bottom, #0a0a2a 55%, #1a1a4a 100%);
+      height: 100vh;
+      font-family: monospace;
+      position: relative;
+    }
+
+    /* Nuvem */
+    .nuvem {
+      position: absolute;
+      top: 22px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 380px;
+      height: 135px;
+      background: rgba(255, 255, 255, 0.97);
+      border-radius: 50%;
+      box-shadow: 
+        75px 40px 70px rgba(255,255,255,0.65),
+        -70px 32px 75px rgba(255,255,255,0.60),
+        45px -32px 55px rgba(255,255,255,0.55);
+      z-index: 30;
+      filter: contrast(1.08) brightness(1.03);
+    }
+    .nuvem::before, .nuvem::after {
+      content: '';
+      position: absolute;
+      background: rgba(255, 255, 255, 0.97);
+      border-radius: 50%;
+    }
+    .nuvem::before { width: 195px; height: 112px; top: -52px; left: 55px; }
+    .nuvem::after  { width: 150px; height: 98px;  top: -42px; right: 50px; }
+
+    .reflexo-nuvem {
+      position: absolute;
+      top: 38px;
+      left: 92px;
+      width: 165px;
+      height: 30px;
+      background: rgba(255, 255, 255, 0.35);
+      border-radius: 50%;
+      filter: blur(16px);
+      z-index: 31;
+    }
+
+    #chuva {
+      position: absolute;
+      top: 0; 
+      left: 0;
+      width: 100%; 
+      height: 100%;
+      pointer-events: none;
+      z-index: 15;
+    }
+
+    .letra {
+      position: absolute;
+      color: rgba(115, 225, 255, 0.95);
+      font-weight: bold;
+      text-shadow: 0 0 6px rgba(140, 235, 255, 0.8),
+                   0 0 12px rgba(100, 210, 255, 0.4);
+      user-select: none;
+      pointer-events: none;
+      will-change: transform;
+      animation: cair linear forwards;
+    }
+
+    @keyframes cair {
+      0% {
+        transform: translateY(-100px) rotate(0deg);
+        opacity: 1;
+      }
+      100% {
+        transform: translateY(108vh) rotate(var(--rotate));
+        opacity: 0.08;
+      }
+    }
+
+    /* Chão discreto */
+    .chao {
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 580px;
+      height: 78px;
+      background: linear-gradient(to top, 
+        rgba(15, 45, 95, 0.32), 
+        rgba(10, 35, 80, 0.08) 75%, 
+        transparent 100%);
+      border-radius: 50% 50% 0 0;
+      z-index: 8;
+      pointer-events: none;
+    }
+
+    /* Reflexo/Respingo */
+    .reflexo-letra {
+      position: absolute;
+      color: rgba(185, 252, 255, 0.62);
+      font-weight: bold;
+      text-shadow: 0 0 8px rgba(185, 252, 255, 0.45);
+      transform: scaleY(-0.45);
+      filter: blur(1.6px);
+      opacity: 0;
+      pointer-events: none;
+      z-index: 7;
+    }
+  </style>
+</head>
+<body>
+  <div class="nuvem">
+    <div class="reflexo-nuvem"></div>
+  </div>
+
+  <div id="chuva"></div>
+  <div class="chao"></div>
+
+  <script>
+    const chuvaContainer = document.getElementById('chuva');
+    const letras = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@#$%&*!?".split('');
+
+    let lastTime = 0;
+    const minInterval = 14;           // Ajustado para densidade média-alta
+    let activeLetters = [];
+    const FLOOR_Y = window.innerHeight - 105;
+
+    function criarLetra() {
+      const letra = document.createElement('div');
+      letra.classList.add('letra');
+
+      const nuvemCentro = window.innerWidth / 2;
+      const startX = nuvemCentro - 150 + Math.random() * 300;
+      const startY = 95 + Math.random() * 42;
+
+      letra.style.left = `${startX}px`;
+      letra.style.top = `${startY}px`;
+
+      letra.textContent = letras[Math.floor(Math.random() * letras.length)];
+
+      const duracao = 2.7 + Math.random() * 4.6;
+      letra.style.animationDuration = `${duracao}s`;
+
+      const tamanho = 13 + Math.random() * 16;
+      letra.style.fontSize = `${tamanho}px`;
+
+      const rotate = (Math.random() * 20 - 10);
+      letra.style.setProperty('--rotate', `${rotate}deg`);
+
+      letra.style.opacity = 0.78 + Math.random() * 0.22;
+
+      chuvaContainer.appendChild(letra);
+      activeLetters.push(letra);
+
+      letra.addEventListener('animationend', () => {
+        const index = activeLetters.indexOf(letra);
+        if (index > -1) activeLetters.splice(index, 1);
+        letra.remove();
+      });
+    }
+
+    function monitorarColisao() {
+      for (let i = activeLetters.length - 1; i >= 0; i--) {
+        const letra = activeLetters[i];
+        if (!letra.parentNode) {
+          activeLetters.splice(i, 1);
+          continue;
+        }
+
+        const rect = letra.getBoundingClientRect();
+
+        if (rect.bottom >= FLOOR_Y) {
+          criarReflexoRespingo(letra);
+
+          letra.style.animationPlayState = 'paused';
+          letra.style.transition = 'transform 0.22s cubic-bezier(0.23, 1, 0.32, 1), opacity 0.42s';
+          letra.style.transform = `translateY(-${15 + Math.random() * 14}px)`;
+
+          setTimeout(() => {
+            letra.style.opacity = '0';
+            setTimeout(() => {
+              const index = activeLetters.indexOf(letra);
+              if (index > -1) activeLetters.splice(index, 1);
+              letra.remove();
+            }, 320);
+          }, 180);
+
+          activeLetters.splice(i, 1);
+        }
+      }
+      requestAnimationFrame(monitorarColisao);
+    }
+
+    function criarReflexoRespingo(letraOriginal) {
+      const reflexo = document.createElement('div');
+      reflexo.classList.add('reflexo-letra');
+
+      reflexo.textContent = letraOriginal.textContent;
+      reflexo.style.left = letraOriginal.style.left;
+      reflexo.style.bottom = '99px';
+      reflexo.style.fontSize = letraOriginal.style.fontSize;
+
+      chuvaContainer.appendChild(reflexo);
+
+      setTimeout(() => {
+        reflexo.style.transition = 'all 0.5s cubic-bezier(0.25, 0.95, 0.4, 1)';
+        reflexo.style.opacity = '0.68';
+        reflexo.style.transform = 'scaleY(-0.57) translateY(-31px)';
+      }, 35);
+
+      setTimeout(() => {
+        reflexo.style.transition = 'all 0.8s ease-in';
+        reflexo.style.opacity = '0.07';
+        reflexo.style.transform = 'scaleY(-0.35) translateY(-7px)';
+      }, 370);
+
+      setTimeout(() => reflexo.remove(), 1200);
+    }
+
+    function loop(time) {
+      if (time - lastTime > minInterval) {
+        // Densidade ajustada - mais natural e agradável
+        let quantidade = 2;
+        if (Math.random() < 0.45) quantidade = 3;
+        if (Math.random() < 0.15) quantidade = 4;   // picos leves
+
+        for (let i = 0; i < quantidade; i++) {
+          criarLetra();
+        }
+        lastTime = time;
+      }
+      requestAnimationFrame(loop);
+    }
+
+    requestAnimationFrame(loop);
+    monitorarColisao();
+  </script>
+</body>
+</html>
